@@ -75,6 +75,7 @@ developer:
 # Options for model overrides and loading
 # Please read the comments to understand how arguments are handled between initial and API loads
 model:
+
   # Overrides the directory to look for models (default: models)
   # Windows users, DO NOT put this path in quotes! This directory will be invalid otherwise.
   model_dir: models
@@ -86,10 +87,15 @@ model:
   # An initial model to load. Make sure the model is located in the model directory!
   # A model can be loaded later via the API.
   # REQUIRED: This must be filled out to load a model on startup!
-  model_name:
-
+  model_name: Meta-Llama-3.1-8B-Instruct-exl2-8_0
+  use_as_default:
+    - cache_mode
+  cache_mode: Q4
   # The below parameters only apply for initial loads
   # All API based loads do NOT inherit these settings unless specified in use_as_default
+  max_seq_len: 16384
+  cache_size: 16384
+  fasttensors: true
 
   # Names of args to use as a default fallback for API load requests (default: [])
   # For example, if you always want cache_mode to be Q4 instead of on the inital model load,
