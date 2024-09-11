@@ -1,5 +1,6 @@
 """Common functions for sampling parameters"""
 
+import json
 import pathlib
 import yaml
 from copy import deepcopy
@@ -47,6 +48,13 @@ class BaseSamplerRequest(BaseModel):
         default_factory=lambda: get_default_sampler_value("banned_tokens", []),
         validation_alias=AliasChoices("banned_tokens", "custom_token_bans"),
         description="Aliases: custom_token_bans",
+        examples=[[128, 330]],
+    )
+
+    allowed_tokens: Optional[Union[List[int], str]] = Field(
+        default_factory=lambda: get_default_sampler_value("allowed_tokens", []),
+        validation_alias=AliasChoices("allowed_tokens", "allowed_token_ids"),
+        description="Aliases: allowed_token_ids",
         examples=[[128, 330]],
     )
 
@@ -131,6 +139,28 @@ class BaseSamplerRequest(BaseModel):
 
     repetition_decay: Optional[int] = Field(
         default_factory=lambda: get_default_sampler_value("repetition_decay", 0)
+    )
+
+    dry_multiplier: Optional[float] = Field(
+        default_factory=lambda: get_default_sampler_value("dry_multiplier", 0.0)
+    )
+
+    dry_base: Optional[float] = Field(
+        default_factory=lambda: get_default_sampler_value("dry_base", 0.0)
+    )
+
+    dry_allowed_length: Optional[int] = Field(
+        default_factory=lambda: get_default_sampler_value("dry_allowed_length", 0)
+    )
+
+    dry_range: Optional[int] = Field(
+        default_factory=lambda: get_default_sampler_value("dry_range", 0),
+        alias=AliasChoices("dry_range", "dry_penalty_last_n"),
+        description=("Aliases: dry_penalty_last_n"),
+    )
+
+    dry_sequence_breakers: Optional[Union[str, List[str]]] = Field(
+        default_factory=lambda: get_default_sampler_value("dry_sequence_breakers", [])
     )
 
     mirostat_mode: Optional[int] = Field(
@@ -287,11 +317,27 @@ class BaseSamplerRequest(BaseModel):
         if self.banned_strings and isinstance(self.banned_strings, str):
             self.banned_strings = [self.banned_strings]
 
-        # Convert string banned tokens to an integer list
+        # Convert string banned and allowed tokens to an integer list
         if self.banned_tokens and isinstance(self.banned_tokens, str):
             self.banned_tokens = [
                 int(x) for x in self.banned_tokens.split(",") if x.isdigit()
             ]
+
+        if self.allowed_tokens and isinstance(self.allowed_tokens, str):
+            self.allowed_tokens = [
+                int(x) for x in self.allowed_tokens.split(",") if x.isdigit()
+            ]
+
+        # Convert sequence breakers into an array of strings
+        # NOTE: This sampler sucks to parse.
+        if self.dry_sequence_breakers and isinstance(self.dry_sequence_breakers, str):
+            if not self.dry_sequence_breakers.startswith("["):
+                self.dry_sequence_breakers = f"[{self.dry_sequence_breakers}]"
+
+            try:
+                self.dry_sequence_breakers = json.loads(self.dry_sequence_breakers)
+            except Exception:
+                self.dry_sequence_breakers = []
 
         gen_params = {
             "max_tokens": self.max_tokens,
@@ -305,6 +351,7 @@ class BaseSamplerRequest(BaseModel):
             "token_healing": self.token_healing,
             "logit_bias": self.logit_bias,
             "banned_tokens": self.banned_tokens,
+            "allowed_tokens": self.allowed_tokens,
             "temperature": self.temperature,
             "temperature_last": self.temperature_last,
             "min_temp": self.min_temp,
@@ -322,6 +369,11 @@ class BaseSamplerRequest(BaseModel):
             "presence_penalty": self.presence_penalty,
             "repetition_penalty": self.repetition_penalty,
             "penalty_range": self.penalty_range,
+            "dry_multiplier": self.dry_multiplier,
+            "dry_base": self.dry_base,
+            "dry_allowed_length": self.dry_allowed_length,
+            "dry_sequence_breakers": self.dry_sequence_breakers,
+            "dry_range": self.dry_range,
             "repetition_decay": self.repetition_decay,
             "mirostat": self.mirostat_mode == 2,
             "mirostat_tau": self.mirostat_tau,
